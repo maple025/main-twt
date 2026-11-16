@@ -798,6 +798,30 @@
       .left-card, .right-card {
         min-height: auto;
       }
+
+      /* 모바일에서도 컴퓨터 화면과 같은 사진 비율 유지 */
+      .right-card {
+        padding: 20px;
+        gap: 18px;
+      }
+      .top-section {
+        height: auto;
+        gap: 12px;
+      }
+      .top-photo-slot {
+        aspect-ratio: 2.07 / 1;
+      }
+      .gallery-grid {
+        grid-auto-rows: auto;
+        gap: 12px;
+      }
+      .gallery-grid .photo-slot {
+        aspect-ratio: 97 / 110;
+      }
+      .photo-slot img {
+        position: absolute;
+        inset: 0;
+      }
     }
   </style>
 </head>
