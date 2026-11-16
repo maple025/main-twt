@@ -783,6 +783,14 @@
       display: none;
     }
 
+    .wrapper {
+      transition: opacity 0.3s ease;
+    }
+
+    body.loading .wrapper {
+      opacity: 0;
+    }
+
     @media (max-width: 900px) {
       .wrapper, .detail-split {
         flex-direction: column;
@@ -793,7 +801,7 @@
     }
   </style>
 </head>
-<body>
+<body class="loading">
 
   <div class="bg-wallpaper-layer" id="bg-wallpaper-layer"></div>
   <input type="file" id="bg-file" accept="image/*" onchange="updateCustomImage(event, 'bg')" />
@@ -908,7 +916,7 @@
         <button type="button" class="btn-close" onclick="closeModal('auth-modal')">닫기</button>
       </div>
       <div class="modal-input-group">
-        <label class="modal-label" for="admin-pw-input">비밀번호를 입력하세요 (초기값: 1234)</label>
+        <label class="modal-label" for="admin-pw-input">관리자 비밀번호를 입력하세요 (처음 비밀번호: 1234)</label>
         <input type="password" id="admin-pw-input" class="modal-input" placeholder="비밀번호 입력" onkeydown="if(event.key==='Enter') verifyPassword()" />
         <span class="error-msg" id="auth-error-msg">비밀번호가 일치하지 않습니다.</span>
       </div>
@@ -924,7 +932,7 @@
         <button type="button" class="btn-close" onclick="closeModal('pw-change-modal')">닫기</button>
       </div>
       <div class="modal-input-group">
-        <label class="modal-label" for="new-pw-input">새 비밀번호</label>
+        <label class="modal-label" for="new-pw-input">새 비밀번호 (4자 이상)</label>
         <input type="password" id="new-pw-input" class="modal-input" placeholder="새 비밀번호 입력" onkeydown="if(event.key==='Enter') saveNewPassword()" />
       </div>
       <button type="button" class="btn-primary" onclick="saveNewPassword()">비밀번호 저장</button>
@@ -932,9 +940,39 @@
   </div>
 
   <script type="module">
-    const STORAGE_KEY = 'personal_gallery_profile_v3';
-    const PW_STORAGE_KEY = 'personal_gallery_admin_pw_v3';
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js';
+    import { getFirestore, doc, getDoc, setDoc } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js';
+
+    /* ===== Firebase 설정 (Firebase 콘솔 > 프로젝트 설정 > 내 앱 에서 복사한 값) ===== */
+    const firebaseConfig = {
+      apiKey: "AIzaSyDEgPeFrSc6-Dt05tYC4Tw2_4XMTN07Yw",
+      authDomain: "main-twt.firebaseapp.com",
+      projectId: "main-twt",
+      storageBucket: "main-twt.firebasestorage.app",
+      messagingSenderId: "820797663078",
+      appId: "1:820797663078:web:65ee272ef17be1f47caa7",
+      measurementId: "G-TNJST649J"
+    };
+
+    const fbApp = initializeApp(firebaseConfig);
+    const db = getFirestore(fbApp);
+
+    const STORAGE_KEY = 'personal_gallery_profile_v3';   // 예전(이 기기 전용) 저장 키: 최초 1회 이전용
     const THEME_STORAGE_KEY = 'personal_gallery_theme_v1';
+    const IMG_PREFIX = 'fb-img:';
+    const DEFAULT_PW = '1234';                            // 비밀번호를 한 번도 바꾸지 않았을 때의 초기값
+    const LEGACY_PW_KEY = 'personal_gallery_admin_pw_v3'; // 예전 버전(이 기기 전용) 비밀번호 키
+    const MAX_IMG_CHARS = 800000;                         // Firestore 문서 1MB 제한 대비
+
+    const imageCache = new Map();   // id -> dataURL
+    const uploadedIds = new Set();  // 이미 클라우드에 올라간 이미지 id
+    let cloudLoaded = false;
+    let pendingMigration = false;
+    let adminPwHash = '';                                 // 클라우드에 저장된 관리자 비밀번호 해시
+    let dirty = false;
+    let lastSaveOk = true;
+    let saveTimer = null;
+    let savePromise = Promise.resolve();
 
     let isEditMode = false;
     let currentEditingTarget = null;
@@ -969,7 +1007,7 @@
       ]
     };
 
-    let appData = loadData();
+    let appData = JSON.parse(JSON.stringify(defaultData));
 
     /* 다크모드 초기화 및 토글 */
     function initTheme() {
@@ -986,29 +1024,201 @@
       document.getElementById('theme-btn-text').textContent = isDark ? '라이트모드' : '다크모드';
     }
 
-    function loadData() {
+    function loadLegacyLocal() {
       try {
         const saved = localStorage.getItem(STORAGE_KEY);
-        if (saved) {
-          return { ...defaultData, ...JSON.parse(saved) };
-        }
+        if (saved) return JSON.parse(saved);
       } catch (e) {
         console.error(e);
       }
-      return JSON.parse(JSON.stringify(defaultData));
+      return null;
     }
 
-    function saveAllData() {
-      if (!isEditMode) return;
+    /* ----- 이미지 압축 / 해시 ----- */
+    function hashStr(str) {
+      let h1 = 0xdeadbeef, h2 = 0x41c6ce57;
+      for (let i = 0; i < str.length; i++) {
+        const ch = str.charCodeAt(i);
+        h1 = Math.imul(h1 ^ ch, 2654435761);
+        h2 = Math.imul(h2 ^ ch, 1597334677);
+      }
+      h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+      h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+      return (h2 >>> 0).toString(16).padStart(8, '0') + (h1 >>> 0).toString(16).padStart(8, '0') + '-' + str.length.toString(36);
+    }
+
+    function loadImage(src) {
+      return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => resolve(img);
+        img.onerror = reject;
+        img.src = src;
+      });
+    }
+
+    async function compressImageSource(src, maxDim = 1400) {
+      const img = await loadImage(src);
+      const scale = Math.min(1, maxDim / Math.max(img.naturalWidth, img.naturalHeight));
+      let w = Math.max(1, Math.round(img.naturalWidth * scale));
+      let h = Math.max(1, Math.round(img.naturalHeight * scale));
+      const canvas = document.createElement('canvas');
+      let quality = 0.85;
+      let out = '';
+      for (let attempt = 0; attempt < 10; attempt++) {
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, w, h);
+        ctx.drawImage(img, 0, 0, w, h);
+        out = canvas.toDataURL('image/jpeg', quality);
+        if (out.length <= MAX_IMG_CHARS) return out;
+        if (quality > 0.55) {
+          quality -= 0.1;
+        } else {
+          w = Math.round(w * 0.8);
+          h = Math.round(h * 0.8);
+        }
+      }
+      return out;
+    }
+
+    async function compressFile(file, maxDim) {
+      const url = URL.createObjectURL(file);
+      try {
+        return await compressImageSource(url, maxDim);
+      } finally {
+        URL.revokeObjectURL(url);
+      }
+    }
+
+    /* ----- 클라우드(Firestore) 저장 / 불러오기 ----- */
+    async function stripImages(value, pending) {
+      if (typeof value === 'string') {
+        if (!value.startsWith('data:image')) return value;
+        let data = value;
+        if (data.length > MAX_IMG_CHARS) data = await compressImageSource(data, 1400);
+        const id = hashStr(data);
+        pending.set(id, data);
+        return IMG_PREFIX + id;
+      }
+      if (Array.isArray(value)) {
+        const arr = [];
+        for (const v of value) arr.push(await stripImages(v, pending));
+        return arr;
+      }
+      if (value && typeof value === 'object') {
+        const out = {};
+        for (const k of Object.keys(value)) out[k] = await stripImages(value[k], pending);
+        return out;
+      }
+      return value;
+    }
+
+    function collectRefs(value, set) {
+      if (typeof value === 'string') {
+        if (value.startsWith(IMG_PREFIX)) set.add(value.slice(IMG_PREFIX.length));
+      } else if (Array.isArray(value)) {
+        value.forEach(v => collectRefs(v, set));
+      } else if (value && typeof value === 'object') {
+        Object.values(value).forEach(v => collectRefs(v, set));
+      }
+    }
+
+    function resolveRefs(value) {
+      if (typeof value === 'string') {
+        return value.startsWith(IMG_PREFIX) ? (imageCache.get(value.slice(IMG_PREFIX.length)) || '') : value;
+      }
+      if (Array.isArray(value)) return value.map(resolveRefs);
+      if (value && typeof value === 'object') {
+        const out = {};
+        for (const k of Object.keys(value)) out[k] = resolveRefs(value[k]);
+        return out;
+      }
+      return value;
+    }
+
+    async function loadFromCloud() {
+      const [cfgSnap, snap] = await Promise.all([
+        getDoc(doc(db, 'site', 'config')),
+        getDoc(doc(db, 'site', 'profile'))
+      ]);
+      if (cfgSnap.exists()) adminPwHash = cfgSnap.data().pwHash || '';
+      if (!snap.exists()) return null;
+      const stripped = JSON.parse(snap.data().json);
+      const refs = new Set();
+      collectRefs(stripped, refs);
+      await Promise.all([...refs].map(async id => {
+        if (imageCache.has(id)) return;
+        const s = await getDoc(doc(db, 'images', id));
+        if (s.exists()) {
+          imageCache.set(id, s.data().data);
+          uploadedIds.add(id);
+        }
+      }));
+      return resolveRefs(stripped);
+    }
+
+    async function pushToCloud() {
+      const pending = new Map();
+      const stripped = await stripImages(appData, pending);
+      for (const [id, data] of pending) {
+        if (uploadedIds.has(id)) continue;
+        await setDoc(doc(db, 'images', id), { data });
+        uploadedIds.add(id);
+      }
+      await setDoc(doc(db, 'site', 'profile'), { json: JSON.stringify(stripped), updatedAt: Date.now() });
+    }
+
+    async function hashPw(pw) {
+      if (window.crypto && crypto.subtle) {
+        const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode('main-twt:' + pw));
+        return 'sha256:' + [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('');
+      }
+      return 'h:' + hashStr('main-twt:' + pw);
+    }
+
+    function handleSaveError(e) {
+      console.error(e);
+      if (e && e.code === 'permission-denied') {
+        showToast('저장 권한이 없어요. Firebase 규칙을 확인해 주세요.');
+      } else {
+        showToast('저장에 실패했어요. 인터넷 연결을 확인해 주세요.');
+      }
+    }
+
+    function flushSave() {
+      clearTimeout(saveTimer);
+      if (!dirty) return savePromise;
+      dirty = false;
+      savePromise = savePromise.then(async () => {
+        try {
+          await pushToCloud();
+          lastSaveOk = true;
+        } catch (e) {
+          lastSaveOk = false;
+          dirty = true;
+          handleSaveError(e);
+        }
+      });
+      return savePromise;
+    }
+
+    function saveAllData(immediate = false) {
+      if (!isEditMode) return Promise.resolve();
       appData.nickname = document.getElementById('nickname-input').value;
       appData.bio = document.getElementById('bio-textarea').value;
       appData.verticalText = document.getElementById('vertical-textarea').value;
-      try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
-      } catch (e) {
-        showToast('브라우저 저장 용량이 가득 찼습니다. 작은 용량의 사진을 사용해 주세요.');
-      }
+      dirty = true;
+      if (immediate) return flushSave();
+      clearTimeout(saveTimer);
+      saveTimer = setTimeout(flushSave, 900);
+      return Promise.resolve();
     }
+
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'hidden' && dirty) flushSave();
+    });
 
     function showToast(message) {
       const toast = document.getElementById('toast');
@@ -1103,7 +1313,7 @@
       for (let i = 0; i < 3; i++) {
         appData.galleryPhotos.push(createPhotoItem(placeholders[i % placeholders.length], `${baseCount + i + 1}번째 기록`));
       }
-      saveAllData();
+      saveAllData(true);
       renderGalleryGrid();
       showToast('사진 1줄(3칸)이 추가되었습니다.');
     }
@@ -1111,17 +1321,25 @@
     function removeLastGalleryRow() {
       if (!isEditMode || appData.galleryPhotos.length <= 3) return;
       appData.galleryPhotos.splice(-3, 3);
-      saveAllData();
+      saveAllData(true);
       renderGalleryGrid();
       showToast('마지막 사진 줄이 삭제되었습니다.');
     }
 
-    function toggleAdminMode() {
+    async function toggleAdminMode() {
       if (isEditMode) {
-        saveAllData();
+        await saveAllData(true);
+        if (!lastSaveOk) {
+          showToast('저장에 실패해서 잠금을 보류했어요. 인터넷 연결을 확인해 주세요.');
+          return;
+        }
         setEditMode(false);
         showToast('저장 및 잠금 완료');
       } else {
+        if (!cloudLoaded) {
+          showToast('저장된 데이터를 아직 불러오지 못했어요. 새로고침 후 다시 시도해 주세요.');
+          return;
+        }
         document.getElementById('admin-pw-input').value = '';
         document.getElementById('auth-error-msg').style.display = 'none';
         document.getElementById('auth-modal').classList.add('active');
@@ -1129,16 +1347,39 @@
       }
     }
 
-    function verifyPassword() {
+    async function verifyPassword() {
       const inputPw = document.getElementById('admin-pw-input').value;
-      const savedPw = localStorage.getItem(PW_STORAGE_KEY) || '1234';
+      const errEl = document.getElementById('auth-error-msg');
+      if (!inputPw) return;
 
-      if (inputPw === savedPw) {
-        closeModal('auth-modal');
-        setEditMode(true);
-        showToast('관리자 편집 모드 활성화');
-      } else {
-        document.getElementById('auth-error-msg').style.display = 'block';
+      const inputHash = await hashPw(inputPw);
+      let expected = adminPwHash;
+      if (!expected) {
+        // 아직 클라우드에 비밀번호가 없으면: 이 기기에서 예전에 바꿔 둔 비밀번호 → 없으면 초기값
+        expected = await hashPw(localStorage.getItem(LEGACY_PW_KEY) || DEFAULT_PW);
+      }
+
+      if (inputHash !== expected) {
+        errEl.textContent = '비밀번호가 일치하지 않습니다.';
+        errEl.style.display = 'block';
+        return;
+      }
+
+      if (!adminPwHash) {
+        adminPwHash = inputHash;
+        setDoc(doc(db, 'site', 'config'), { pwHash: inputHash }).catch(handleSaveError);
+      }
+
+      closeModal('auth-modal');
+      setEditMode(true);
+      showToast('관리자 편집 모드 활성화');
+
+      if (pendingMigration) {
+        pendingMigration = false;
+        dirty = true;
+        flushSave().then(() => {
+          if (lastSaveOk) showToast('이 기기에 있던 편집 내용을 클라우드로 옮겼어요.');
+        });
       }
     }
 
@@ -1162,13 +1403,20 @@
       document.getElementById('pw-change-modal').classList.add('active');
     }
 
-    function saveNewPassword() {
+    async function saveNewPassword() {
       if (!isEditMode) return;
       const newPw = document.getElementById('new-pw-input').value.trim();
       if (!newPw) return showToast('새 비밀번호를 입력해 주세요.');
-      localStorage.setItem(PW_STORAGE_KEY, newPw);
-      closeModal('pw-change-modal');
-      showToast('비밀번호가 변경되었습니다.');
+      if (newPw.length < 4) return showToast('비밀번호는 4자 이상이어야 해요.');
+      try {
+        const h = await hashPw(newPw);
+        await setDoc(doc(db, 'site', 'config'), { pwHash: h });
+        adminPwHash = h;
+        closeModal('pw-change-modal');
+        showToast('비밀번호가 변경되었습니다.');
+      } catch (e) {
+        handleSaveError(e);
+      }
     }
 
     function handleHeaderClick() {
@@ -1179,27 +1427,30 @@
       if (isEditMode) document.getElementById('avatar-file').click();
     }
 
-    function updateCustomImage(event, type) {
+    async function updateCustomImage(event, type) {
       if (!isEditMode) return;
       const file = event.target.files[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = function (e) {
-        if (type === 'header') appData.headerImg = e.target.result;
-        else if (type === 'avatar') appData.avatarImg = e.target.result;
-        else if (type === 'bg') appData.bgImg = e.target.result;
-        saveAllData();
-        renderAll();
-        showToast('이미지가 적용되었습니다.');
-      };
-      reader.readAsDataURL(file);
       event.target.value = '';
+      if (!file) return;
+      try {
+        const maxDim = type === 'avatar' ? 600 : type === 'bg' ? 1600 : 1400;
+        const dataUrl = await compressFile(file, maxDim);
+        if (type === 'header') appData.headerImg = dataUrl;
+        else if (type === 'avatar') appData.avatarImg = dataUrl;
+        else if (type === 'bg') appData.bgImg = dataUrl;
+        renderAll();
+        await saveAllData(true);
+        if (lastSaveOk) showToast('이미지가 적용되었습니다.');
+      } catch (e) {
+        console.error(e);
+        showToast('이미지를 불러오지 못했어요.');
+      }
     }
 
     function resetBackgroundImage() {
       if (!isEditMode) return;
       appData.bgImg = '';
-      saveAllData();
+      saveAllData(true);
       renderAll();
       showToast('배경이 초기화되었습니다.');
     }
@@ -1258,30 +1509,32 @@
       }
     }
 
-    function handleDetailBannerFile(event) {
+    async function handleDetailBannerFile(event) {
       if (!isEditMode) return;
       const file = event.target.files[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = e => {
-        tempBannerDataUrl = e.target.result;
-        document.getElementById('detail-banner-img').src = tempBannerDataUrl;
-      };
-      reader.readAsDataURL(file);
       event.target.value = '';
+      if (!file) return;
+      try {
+        tempBannerDataUrl = await compressFile(file, 1400);
+        document.getElementById('detail-banner-img').src = tempBannerDataUrl;
+      } catch (e) {
+        console.error(e);
+        showToast('이미지를 불러오지 못했어요.');
+      }
     }
 
-    function handleDetailSubFile(event) {
+    async function handleDetailSubFile(event) {
       if (!isEditMode) return;
       const file = event.target.files[0];
-      if (!file || currentSubPhotoIndex === null) return;
-      const reader = new FileReader();
-      reader.onload = e => {
-        tempSubPhotos[currentSubPhotoIndex] = e.target.result;
-        renderDetailSubGrid();
-      };
-      reader.readAsDataURL(file);
       event.target.value = '';
+      if (!file || currentSubPhotoIndex === null) return;
+      try {
+        tempSubPhotos[currentSubPhotoIndex] = await compressFile(file, 700);
+        renderDetailSubGrid();
+      } catch (e) {
+        console.error(e);
+        showToast('이미지를 불러오지 못했어요.');
+      }
     }
 
     function addDetailSubRow() {
@@ -1300,7 +1553,7 @@
       renderDetailSubGrid();
     }
 
-    function saveDetailChanges() {
+    async function saveDetailChanges() {
       if (!isEditMode || currentEditingTarget === null) return;
       const photoObj = currentEditingTarget === 'top' ? appData.topPhoto : appData.galleryPhotos[currentEditingTarget];
 
@@ -1310,10 +1563,10 @@
       photoObj.desc = document.getElementById('detail-desc-area').value;
       photoObj.subPhotos = [...tempSubPhotos];
 
-      saveAllData();
       renderAll();
       closeModal('photo-modal');
-      showToast('상세 기록이 저장되었습니다.');
+      await saveAllData(true);
+      if (lastSaveOk) showToast('상세 기록이 저장되었습니다.');
     }
 
     function closeModal(modalId) {
@@ -1326,20 +1579,43 @@
       }
     }
 
-    initTheme();
-    renderAll();
-    setEditMode(false);
-  
-    const firebaseConfig = {
-    apiKey: "AIzaSyDEgPeFrSc6-Dt05tYC4Tw2_4XMTN07Yw",
-     authDomain: "main-twt.firebaseapp.com",
-      projectId: "main-twt",
-     storageBucket: "main-twt.firebasestorage.app",
-      messagingSenderId: "820797663078",
-      appId: "1:820797663078:web:65ee272ef17be1f47caa7",
-     measurementId: "G-TNJST649J"
-  };
-  
+    /* type="module" 스크립트는 인라인 onclick에서 함수가 보이지 않으므로 window에 노출 */
+    Object.assign(window, {
+      updateCustomImage, saveAllData, openPhotoModal, handleHeaderClick, handleAvatarClick,
+      addGalleryRow, removeLastGalleryRow, resetBackgroundImage, openPasswordChangeModal,
+      toggleDarkMode, toggleAdminMode, triggerBannerFile, saveDetailChanges,
+      closeModal, closeBackdrop, handleDetailBannerFile, handleDetailSubFile,
+      addDetailSubRow, removeDetailSubRow, verifyPassword, saveNewPassword
+    });
+
+    async function initApp() {
+      initTheme();
+      setEditMode(false);
+      try {
+        const cloud = await Promise.race([
+          loadFromCloud(),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 15000))
+        ]);
+        cloudLoaded = true;
+        if (cloud) {
+          appData = { ...defaultData, ...cloud };
+        } else {
+          const legacy = loadLegacyLocal();
+          if (legacy) {
+            appData = { ...defaultData, ...legacy };
+            pendingMigration = true;
+          }
+        }
+      } catch (e) {
+        console.error(e);
+        showToast('저장된 데이터를 불러오지 못했어요.');
+      }
+      renderAll();
+      document.body.classList.remove('loading');
+    }
+
+    initApp();
+
   </script>
   
 </body>
