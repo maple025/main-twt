@@ -1,0 +1,1347 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MAIN TWT</title>
+  <style>
+    @font-face {
+      font-family: 'Paperlogy';
+      src: url('https://fastly.jsdelivr.net/gh/projectnoonnu/2408-3@1.0/Paperlogy-5Medium.woff2') format('woff2');
+      font-weight: 500;
+      font-style: normal;
+      font-display: swap;
+    }
+
+    :root {
+      --bg-body: #F4F4F2;
+      --text-main: #1F1F1F;
+      --text-sub: #2B2B2B;
+      --text-muted: #888884;
+      --card-bg: rgba(255, 255, 255, 0.94);
+      --box-bg: #F7F7F5;
+      --box-focus-bg: #EFEFEC;
+      --header-bg: #E7E6E2;
+      --header-hover-bg: #DCDAD5;
+      --slot-bg: #F4F4F2;
+      --btn-sub-bg: #FFFFFF;
+      --btn-sub-text: #555555;
+      --modal-bg: #FFFFFF;
+      --btn-close-bg: #F2F2F0;
+      --btn-close-text: #333333;
+      --fade-start: rgba(255, 255, 255, 0.96);
+      --fade-mid: rgba(255, 255, 255, 0.75);
+      --fade-end: rgba(255, 255, 255, 0);
+      --shadow-card: 0 10px 30px rgba(0, 0, 0, 0.06);
+    }
+
+    body.dark-mode {
+      --bg-body: #121212;
+      --text-main: #F2F2F0;
+      --text-sub: #D6D6D2;
+      --text-muted: #8A8A86;
+      --card-bg: rgba(30, 30, 30, 0.92);
+      --box-bg: #262626;
+      --box-focus-bg: #2F2F2F;
+      --header-bg: #2A2A2A;
+      --header-hover-bg: #353535;
+      --slot-bg: #262626;
+      --btn-sub-bg: #262626;
+      --btn-sub-text: #E0E0DC;
+      --modal-bg: #1E1E1E;
+      --btn-close-bg: #2E2E2E;
+      --btn-close-text: #EAEAE6;
+      --fade-start: rgba(30, 30, 30, 0.96);
+      --fade-mid: rgba(30, 30, 30, 0.75);
+      --fade-end: rgba(30, 30, 30, 0);
+      --shadow-card: 0 12px 34px rgba(0, 0, 0, 0.45);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Paperlogy', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
+      font-weight: 500;
+      border: none;
+    }
+
+    body {
+      background-color: var(--bg-body);
+      color: var(--text-main);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      padding: 36px 20px 90px 20px;
+      position: relative;
+      overflow-x: hidden;
+      transition: background-color 0.3s ease, color 0.3s ease;
+    }
+
+    /* 전체 배경 블러 레이어 */
+    .bg-wallpaper-layer {
+      position: fixed;
+      inset: -24px;
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+      filter: blur(12px) brightness(0.95);
+      z-index: -1;
+      opacity: 0;
+      transition: opacity 0.35s ease, filter 0.35s ease;
+      pointer-events: none;
+    }
+
+    body.dark-mode .bg-wallpaper-layer {
+      filter: blur(14px) brightness(0.55);
+    }
+
+    .bg-wallpaper-layer.active {
+      opacity: 1;
+    }
+
+    .wrapper {
+      width: 100%;
+      max-width: 1200px;
+      display: flex;
+      gap: 28px;
+      align-items: stretch;
+      position: relative;
+      z-index: 1;
+    }
+
+    .card {
+      background-color: var(--card-bg);
+      backdrop-filter: blur(12px);
+      border-radius: 28px;
+      box-shadow: var(--shadow-card);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      transition: background-color 0.3s ease, box-shadow 0.3s ease;
+    }
+
+    /* 왼쪽 프로필 카드 */
+    .left-card {
+      flex: 0.92;
+      min-height: 760px;
+    }
+
+    .profile-header {
+      width: 100%;
+      height: 185px;
+      background-color: var(--header-bg);
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      transition: background-color 0.2s ease;
+    }
+
+    body.edit-mode .profile-header {
+      cursor: pointer;
+    }
+
+    body.edit-mode .profile-header:hover {
+      background-color: var(--header-hover-bg);
+    }
+
+    .profile-header img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: none;
+    }
+
+    .header-placeholder {
+      color: var(--text-muted);
+      font-size: 13px;
+      background: rgba(128, 128, 128, 0.16);
+      padding: 7px 15px;
+      border-radius: 999px;
+      pointer-events: none;
+      display: none;
+    }
+
+    body.edit-mode .header-placeholder.visible {
+      display: inline-block;
+    }
+
+    .profile-body {
+      flex: 1;
+      padding: 0 32px 32px 32px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .avatar-circle {
+      width: 136px;
+      height: 136px;
+      border-radius: 50%;
+      background-color: var(--box-bg);
+      margin-top: -68px;
+      position: relative;
+      z-index: 2;
+      overflow: hidden;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+      transition: transform 0.2s ease, background-color 0.3s ease;
+    }
+
+    body.edit-mode .avatar-circle {
+      cursor: pointer;
+    }
+
+    body.edit-mode .avatar-circle:hover {
+      transform: scale(1.03);
+    }
+
+    .avatar-circle img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: none;
+    }
+
+    .avatar-placeholder {
+      color: var(--text-muted);
+      font-size: 13px;
+    }
+
+    .nickname-input {
+      width: 100%;
+      margin-top: 22px;
+      margin-bottom: 20px;
+      padding: 13px 16px;
+      border-radius: 16px;
+      background-color: var(--box-bg);
+      font-size: 20px;
+      color: var(--text-main);
+      text-align: center;
+      outline: none;
+      transition: background-color 0.25s ease, color 0.25s ease;
+    }
+
+    .nickname-input:read-only {
+      cursor: default;
+    }
+
+    body.edit-mode .nickname-input:focus {
+      background-color: var(--box-focus-bg);
+    }
+
+    .bio-box {
+      flex: 1;
+      width: 100%;
+      background-color: var(--box-bg);
+      border-radius: 22px;
+      padding: 24px;
+      display: flex;
+      transition: background-color 0.25s ease;
+    }
+
+    .bio-textarea {
+      width: 100%;
+      height: 100%;
+      min-height: 260px;
+      background: transparent;
+      resize: none;
+      outline: none;
+      font-size: 15px;
+      line-height: 1.75;
+      color: var(--text-sub);
+      text-align: center;
+    }
+
+    .bio-textarea:read-only {
+      cursor: default;
+    }
+
+    /* 오른쪽 카드 */
+    .right-card {
+      flex: 1.28;
+      padding: 32px;
+      gap: 26px;
+      min-height: 760px;
+    }
+
+    .top-section {
+      display: flex;
+      gap: 16px;
+      height: 270px;
+      align-items: stretch;
+      flex-shrink: 0;
+    }
+
+    .vertical-text-wrap {
+      width: 44px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      flex-shrink: 0;
+    }
+
+    .vertical-textarea {
+      width: 100%;
+      height: 100%;
+      writing-mode: vertical-rl;
+      text-orientation: upright;
+      text-align: center;
+      background: transparent;
+      resize: none;
+      outline: none;
+      font-size: 15px;
+      line-height: 1.6;
+      color: var(--text-main);
+      letter-spacing: 2px;
+      padding: 8px 0;
+    }
+
+    .vertical-textarea:read-only {
+      cursor: default;
+    }
+
+    .photo-slot {
+      position: relative;
+      border-radius: 22px;
+      background-color: var(--slot-bg);
+      overflow: hidden;
+      cursor: pointer;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      transition: transform 0.25s ease, box-shadow 0.25s ease;
+    }
+
+    .photo-slot:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 24px rgba(0, 0, 0, 0.14);
+    }
+
+    .top-photo-slot {
+      flex: 1;
+    }
+
+    .photo-slot img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+      transition: transform 0.35s ease;
+    }
+
+    .photo-slot:hover img {
+      transform: scale(1.03);
+    }
+
+    .photo-overlay {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(to top, rgba(0, 0, 0, 0.82) 0%, rgba(0, 0, 0, 0.35) 45%, rgba(0, 0, 0, 0) 100%);
+      opacity: 0;
+      transition: opacity 0.28s ease;
+      display: flex;
+      align-items: flex-end;
+      padding: 20px;
+      pointer-events: none;
+    }
+
+    .photo-slot:hover .photo-overlay {
+      opacity: 1;
+    }
+
+    .photo-overlay-text {
+      color: #FFFFFF;
+      font-size: 15px;
+      line-height: 1.4;
+    }
+
+    .gallery-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      grid-auto-rows: 220px;
+      gap: 18px;
+    }
+
+    .row-controls {
+      display: none;
+      gap: 12px;
+      margin-top: 2px;
+    }
+
+    body.edit-mode .row-controls {
+      display: flex;
+    }
+
+    .btn-row-action {
+      flex: 1;
+      padding: 13px 16px;
+      border-radius: 16px;
+      background-color: var(--box-bg);
+      color: var(--text-main);
+      font-size: 14px;
+      cursor: pointer;
+      text-align: center;
+      transition: background-color 0.2s ease;
+    }
+
+    .btn-row-action:hover {
+      background-color: var(--box-focus-bg);
+    }
+
+    .btn-row-remove {
+      flex: 0.55;
+      background-color: rgba(210, 75, 75, 0.14);
+      color: #D45D5D;
+    }
+
+    /* 우측 하단 플로팅 바 (다크모드 + 관리자 버튼) */
+    .floating-admin-bar {
+      position: fixed;
+      right: 24px;
+      bottom: 24px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      z-index: 90;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .btn-theme-toggle {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      padding: 12px 16px;
+      border-radius: 999px;
+      background-color: var(--btn-sub-bg);
+      color: var(--text-main);
+      font-size: 13px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.14);
+      cursor: pointer;
+      transition: transform 0.2s ease, background-color 0.25s ease, color 0.25s ease;
+    }
+
+    .btn-theme-toggle:hover {
+      transform: translateY(-2px);
+    }
+
+    .btn-admin-toggle {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 18px;
+      border-radius: 999px;
+      background-color: var(--btn-sub-bg);
+      color: var(--text-main);
+      font-size: 13px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.14);
+      cursor: pointer;
+      transition: transform 0.2s ease, background-color 0.25s ease;
+    }
+
+    .btn-admin-toggle:hover {
+      transform: translateY(-2px);
+    }
+
+    body.edit-mode .btn-admin-toggle {
+      background-color: #1F1F1F;
+      color: #FFFFFF;
+    }
+
+    body.dark-mode.edit-mode .btn-admin-toggle {
+      background-color: #F2F2F0;
+      color: #141414;
+    }
+
+    .btn-edit-sub {
+      display: none;
+      padding: 12px 16px;
+      border-radius: 999px;
+      background-color: var(--btn-sub-bg);
+      color: var(--btn-sub-text);
+      font-size: 13px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.14);
+      cursor: pointer;
+    }
+
+    body.edit-mode .btn-edit-sub {
+      display: inline-flex;
+      align-items: center;
+    }
+
+    /* 모달 공통 */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.62);
+      backdrop-filter: blur(5px);
+      display: none;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+      z-index: 100;
+      overflow-y: auto;
+    }
+
+    .modal-backdrop.active {
+      display: flex;
+    }
+
+    .detail-modal-card {
+      background: var(--modal-bg);
+      color: var(--text-main);
+      width: 100%;
+      max-width: 920px;
+      max-height: 90vh;
+      overflow-y: auto;
+      border-radius: 28px;
+      padding: 28px;
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .modal-card.small-modal {
+      background: var(--modal-bg);
+      color: var(--text-main);
+      width: 100%;
+      max-width: 380px;
+      border-radius: 28px;
+      padding: 28px;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .modal-title {
+      font-size: 18px;
+      color: var(--text-main);
+    }
+
+    .btn-close {
+      background: var(--btn-close-bg);
+      color: var(--btn-close-text);
+      padding: 8px 16px;
+      border-radius: 12px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+
+    /* 관리자 전용 요소 */
+    .admin-only-control {
+      display: none !important;
+    }
+
+    body.edit-mode .admin-only-control {
+      display: inline-flex !important;
+    }
+
+    body.edit-mode .admin-only-flex {
+      display: flex !important;
+    }
+
+    /* 상세 모달 내부 */
+    .detail-banner {
+      position: relative;
+      width: 100%;
+      height: 220px;
+      border-radius: 20px;
+      background-color: var(--slot-bg);
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+    }
+
+    .detail-banner img {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .detail-banner-fade {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(to right, var(--fade-start) 0%, var(--fade-mid) 38%, var(--fade-end) 75%);
+      pointer-events: none;
+    }
+
+    .detail-banner-text {
+      position: relative;
+      z-index: 2;
+      padding: 24px 28px;
+      width: 60%;
+    }
+
+    .detail-title-input {
+      width: 100%;
+      background: transparent;
+      font-size: 22px;
+      color: var(--text-main);
+      outline: none;
+    }
+
+    .detail-title-input:read-only {
+      cursor: default;
+    }
+
+    body.edit-mode .detail-title-input {
+      border-bottom: 1px dashed var(--text-muted);
+      padding-bottom: 4px;
+    }
+
+    .detail-split {
+      display: flex;
+      gap: 20px;
+      align-items: stretch;
+    }
+
+    .detail-left-box {
+      flex: 1;
+      background: var(--box-bg);
+      border-radius: 20px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .detail-sub-title {
+      width: 100%;
+      background: transparent;
+      font-size: 17px;
+      color: var(--text-main);
+      outline: none;
+    }
+
+    .detail-sub-title:read-only {
+      cursor: default;
+    }
+
+    body.edit-mode .detail-sub-title {
+      border-bottom: 1px dashed var(--text-muted);
+      padding-bottom: 6px;
+    }
+
+    .detail-desc-area {
+      width: 100%;
+      flex: 1;
+      min-height: 160px;
+      background: transparent;
+      resize: none;
+      outline: none;
+      font-size: 14px;
+      line-height: 1.65;
+      color: var(--text-sub);
+    }
+
+    .detail-desc-area:read-only {
+      cursor: default;
+    }
+
+    .detail-right-box {
+      flex: 1.25;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .detail-sub-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      grid-auto-rows: 110px;
+      gap: 10px;
+    }
+
+    .detail-sub-photo {
+      border-radius: 14px;
+      overflow: hidden;
+      background: var(--box-bg);
+      position: relative;
+      cursor: default;
+    }
+
+    .detail-sub-photo img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    body.edit-mode .detail-sub-photo {
+      cursor: pointer;
+    }
+
+    body.edit-mode .detail-sub-photo::after {
+      content: '변경';
+      position: absolute;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.5);
+      color: #fff;
+      font-size: 12px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      opacity: 0;
+      transition: opacity 0.2s ease;
+    }
+
+    body.edit-mode .detail-sub-photo:hover::after {
+      opacity: 1;
+    }
+
+    .modal-input-group {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .modal-label {
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+
+    .modal-input {
+      width: 100%;
+      padding: 13px 16px;
+      border-radius: 14px;
+      background-color: var(--box-bg);
+      font-size: 15px;
+      outline: none;
+      color: var(--text-main);
+    }
+
+    .btn-primary {
+      flex: 1;
+      background-color: #1F1F1F;
+      color: #FFFFFF;
+      padding: 13px;
+      border-radius: 14px;
+      font-size: 15px;
+      cursor: pointer;
+      text-align: center;
+    }
+
+    body.dark-mode .btn-primary {
+      background-color: #F2F2F0;
+      color: #141414;
+    }
+
+    .btn-secondary {
+      flex: 1;
+      background-color: var(--box-bg);
+      color: var(--text-main);
+      padding: 13px;
+      border-radius: 14px;
+      font-size: 15px;
+      cursor: pointer;
+      text-align: center;
+    }
+
+    .error-msg {
+      color: #E05A5A;
+      font-size: 13px;
+      display: none;
+    }
+
+    .toast {
+      position: fixed;
+      top: 24px;
+      left: 50%;
+      transform: translateX(-50%) translateY(-20px);
+      background: rgba(20, 20, 20, 0.94);
+      color: #FFFFFF;
+      padding: 11px 22px;
+      border-radius: 999px;
+      font-size: 14px;
+      opacity: 0;
+      pointer-events: none;
+      transition: all 0.25s ease;
+      z-index: 200;
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    input[type="file"] {
+      display: none;
+    }
+
+    @media (max-width: 900px) {
+      .wrapper, .detail-split {
+        flex-direction: column;
+      }
+      .left-card, .right-card {
+        min-height: auto;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="bg-wallpaper-layer" id="bg-wallpaper-layer"></div>
+  <input type="file" id="bg-file" accept="image/*" onchange="updateCustomImage(event, 'bg')" />
+
+  <div class="toast" id="toast"></div>
+
+  <div class="wrapper">
+    <!-- 왼쪽 프로필 카드 -->
+    <section class="card left-card">
+      <div class="profile-header" onclick="handleHeaderClick()">
+        <img id="header-img" src="" alt="헤더 이미지" />
+        <span class="header-placeholder visible" id="header-placeholder">클릭하여 헤더 사진 선택</span>
+        <input type="file" id="header-file" accept="image/*" onchange="updateCustomImage(event, 'header')" />
+      </div>
+
+      <div class="profile-body">
+        <div class="avatar-circle" onclick="handleAvatarClick()">
+          <img id="avatar-img" src="" alt="프로필 사진" />
+          <span class="avatar-placeholder" id="avatar-placeholder">프로필</span>
+          <input type="file" id="avatar-file" accept="image/*" onchange="updateCustomImage(event, 'avatar')" />
+        </div>
+
+        <input type="text" id="nickname-input" class="nickname-input" placeholder="닉네임" readonly oninput="saveAllData()" />
+
+        <div class="bio-box">
+          <textarea id="bio-textarea" class="bio-textarea" placeholder="소개 글을 작성해 주세요." readonly oninput="saveAllData()"></textarea>
+        </div>
+      </div>
+    </section>
+
+    <!-- 오른쪽 카드 -->
+    <section class="card right-card">
+      <div class="top-section">
+        <div class="vertical-text-wrap">
+          <textarea id="vertical-textarea" class="vertical-textarea" placeholder="텍스트" readonly oninput="saveAllData()"></textarea>
+        </div>
+
+        <div class="photo-slot top-photo-slot" onclick="openPhotoModal('top')">
+          <img id="top-photo-img" src="" alt="메인 사진" />
+          <div class="photo-overlay">
+            <span class="photo-overlay-text" id="top-photo-caption"></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="gallery-grid" id="gallery-grid"></div>
+
+      <div class="row-controls">
+        <button type="button" class="btn-row-action" onclick="addGalleryRow()">+ 사진 줄 추가 (3칸)</button>
+        <button type="button" class="btn-row-action btn-row-remove" id="btn-remove-row" onclick="removeLastGalleryRow()">마지막 줄 삭제</button>
+      </div>
+    </section>
+  </div>
+
+  <!-- 우측 하단 플로팅 바 -->
+  <div class="floating-admin-bar">
+    <button type="button" class="btn-edit-sub" onclick="document.getElementById('bg-file').click()">배경 사진 선택</button>
+    <button type="button" class="btn-edit-sub" id="btn-reset-bg" onclick="resetBackgroundImage()">배경 초기화</button>
+    <button type="button" class="btn-edit-sub" onclick="openPasswordChangeModal()">비밀번호 변경</button>
+    <button type="button" class="btn-theme-toggle" id="btn-theme-toggle" onclick="toggleDarkMode()">
+      <span id="theme-btn-text">다크모드</span>
+    </button>
+    <button type="button" class="btn-admin-toggle" id="btn-admin-toggle" onclick="toggleAdminMode()">
+      <span id="admin-btn-text">관리자 편집</span>
+    </button>
+  </div>
+
+  <!-- 사진 클릭 시 열리는 스케치 레이아웃 상세 모달 -->
+  <div class="modal-backdrop" id="photo-modal" onclick="closeBackdrop(event, 'photo-modal')">
+    <div class="detail-modal-card">
+      <div class="modal-header">
+        <span class="modal-title" id="photo-modal-title">상세 기록</span>
+        <div style="display: flex; gap: 8px;">
+          <button type="button" class="btn-secondary admin-only-control" style="padding: 8px 14px; font-size: 13px;" onclick="triggerBannerFile()">대표 사진 변경</button>
+          <button type="button" class="btn-primary admin-only-control" style="padding: 8px 16px; font-size: 13px;" onclick="saveDetailChanges()">저장</button>
+          <button type="button" class="btn-close" onclick="closeModal('photo-modal')">닫기</button>
+        </div>
+        <input type="file" id="modal-banner-file" accept="image/*" onchange="handleDetailBannerFile(event)" />
+      </div>
+
+      <div class="detail-banner">
+        <img id="detail-banner-img" src="" alt="대표 사진" />
+        <div class="detail-banner-fade"></div>
+        <div class="detail-banner-text">
+          <input type="text" id="detail-caption-input" class="detail-title-input" placeholder="제목 / 오버레이 텍스트" readonly />
+        </div>
+      </div>
+
+      <div class="detail-split">
+        <div class="detail-left-box">
+          <input type="text" id="detail-sub-title" class="detail-sub-title" placeholder="소제목 입력" readonly />
+          <textarea id="detail-desc-area" class="detail-desc-area" placeholder="상세 내용 텍스트 입력" readonly></textarea>
+        </div>
+
+        <div class="detail-right-box">
+          <div class="detail-sub-grid" id="detail-sub-grid"></div>
+          <div class="admin-only-control admin-only-flex" style="gap: 8px; width: 100%;">
+            <button type="button" class="btn-row-action" style="padding: 10px; font-size: 13px;" onclick="addDetailSubRow()">+ 서브 사진 1줄(3칸) 추가</button>
+            <button type="button" class="btn-row-action btn-row-remove" id="btn-remove-sub-row" style="padding: 10px; font-size: 13px;" onclick="removeDetailSubRow()">마지막 줄 삭제</button>
+          </div>
+          <input type="file" id="detail-sub-file" accept="image/*" onchange="handleDetailSubFile(event)" />
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 관리자 인증 모달 -->
+  <div class="modal-backdrop" id="auth-modal" onclick="closeBackdrop(event, 'auth-modal')">
+    <div class="modal-card small-modal">
+      <div class="modal-header">
+        <span class="modal-title">관리자 인증</span>
+        <button type="button" class="btn-close" onclick="closeModal('auth-modal')">닫기</button>
+      </div>
+      <div class="modal-input-group">
+        <label class="modal-label" for="admin-pw-input">비밀번호를 입력하세요 (초기값: 1234)</label>
+        <input type="password" id="admin-pw-input" class="modal-input" placeholder="비밀번호 입력" onkeydown="if(event.key==='Enter') verifyPassword()" />
+        <span class="error-msg" id="auth-error-msg">비밀번호가 일치하지 않습니다.</span>
+      </div>
+      <button type="button" class="btn-primary" onclick="verifyPassword()">편집 모드 잠금 해제</button>
+    </div>
+  </div>
+
+  <!-- 비밀번호 변경 모달 -->
+  <div class="modal-backdrop" id="pw-change-modal" onclick="closeBackdrop(event, 'pw-change-modal')">
+    <div class="modal-card small-modal">
+      <div class="modal-header">
+        <span class="modal-title">관리자 비밀번호 변경</span>
+        <button type="button" class="btn-close" onclick="closeModal('pw-change-modal')">닫기</button>
+      </div>
+      <div class="modal-input-group">
+        <label class="modal-label" for="new-pw-input">새 비밀번호</label>
+        <input type="password" id="new-pw-input" class="modal-input" placeholder="새 비밀번호 입력" onkeydown="if(event.key==='Enter') saveNewPassword()" />
+      </div>
+      <button type="button" class="btn-primary" onclick="saveNewPassword()">비밀번호 저장</button>
+    </div>
+  </div>
+
+  <script type="module">
+    const STORAGE_KEY = 'personal_gallery_profile_v3';
+    const PW_STORAGE_KEY = 'personal_gallery_admin_pw_v3';
+    const THEME_STORAGE_KEY = 'personal_gallery_theme_v1';
+
+    let isEditMode = false;
+    let currentEditingTarget = null;
+    let currentSubPhotoIndex = null;
+    let tempBannerDataUrl = null;
+    let tempSubPhotos = [];
+
+    const createPhotoItem = (src, caption) => ({
+      src,
+      caption,
+      subTitle: caption,
+      desc: '상세 내용을 입력해 주세요.',
+      subPhotos: [
+        'https://images.unsplash.com/photo-1501785888041-af3ef285b470?auto=format&fit=crop&w=400&q=80',
+        'https://images.unsplash.com/photo-1469474968028-56623f02e42e?auto=format&fit=crop&w=400&q=80',
+        'https://images.unsplash.com/photo-1426604966848-d7adac402bff?auto=format&fit=crop&w=400&q=80'
+      ]
+    });
+
+    const defaultData = {
+      bgImg: '',
+      headerImg: '',
+      avatarImg: '',
+      nickname: '',
+      bio: '',
+      verticalText: '',
+      topPhoto: createPhotoItem('https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=900&q=80', '메인 사진 설명'),
+      galleryPhotos: [
+        createPhotoItem('https://images.unsplash.com/photo-1519681393784-d120267933ba?auto=format&fit=crop&w=600&q=80', '첫 번째 기록'),
+        createPhotoItem('https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?auto=format&fit=crop&w=600&q=80', '두 번째 기록'),
+        createPhotoItem('https://images.unsplash.com/photo-1441974231531-c6227db76b6e?auto=format&fit=crop&w=600&q=80', '세 번째 기록')
+      ]
+    };
+
+    let appData = loadData();
+
+    /* 다크모드 초기화 및 토글 */
+    function initTheme() {
+      const savedTheme = localStorage.getItem(THEME_STORAGE_KEY);
+      if (savedTheme === 'dark') {
+        document.body.classList.add('dark-mode');
+        document.getElementById('theme-btn-text').textContent = '라이트모드';
+      }
+    }
+
+    function toggleDarkMode() {
+      const isDark = document.body.classList.toggle('dark-mode');
+      localStorage.setItem(THEME_STORAGE_KEY, isDark ? 'dark' : 'light');
+      document.getElementById('theme-btn-text').textContent = isDark ? '라이트모드' : '다크모드';
+    }
+
+    function loadData() {
+      try {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (saved) {
+          return { ...defaultData, ...JSON.parse(saved) };
+        }
+      } catch (e) {
+        console.error(e);
+      }
+      return JSON.parse(JSON.stringify(defaultData));
+    }
+
+    function saveAllData() {
+      if (!isEditMode) return;
+      appData.nickname = document.getElementById('nickname-input').value;
+      appData.bio = document.getElementById('bio-textarea').value;
+      appData.verticalText = document.getElementById('vertical-textarea').value;
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
+      } catch (e) {
+        showToast('브라우저 저장 용량이 가득 찼습니다. 작은 용량의 사진을 사용해 주세요.');
+      }
+    }
+
+    function showToast(message) {
+      const toast = document.getElementById('toast');
+      toast.textContent = message;
+      toast.classList.add('show');
+      setTimeout(() => toast.classList.remove('show'), 2400);
+    }
+
+    function renderAll() {
+      const bgLayer = document.getElementById('bg-wallpaper-layer');
+      const resetBgBtn = document.getElementById('btn-reset-bg');
+      if (appData.bgImg) {
+        bgLayer.style.backgroundImage = `url('${appData.bgImg}')`;
+        bgLayer.classList.add('active');
+        resetBgBtn.style.display = isEditMode ? 'inline-flex' : 'none';
+      } else {
+        bgLayer.style.backgroundImage = 'none';
+        bgLayer.classList.remove('active');
+        resetBgBtn.style.display = 'none';
+      }
+
+      const headerImg = document.getElementById('header-img');
+      const headerPlaceholder = document.getElementById('header-placeholder');
+      if (appData.headerImg) {
+        headerImg.src = appData.headerImg;
+        headerImg.style.display = 'block';
+        headerPlaceholder.classList.remove('visible');
+      } else {
+        headerImg.style.display = 'none';
+        headerPlaceholder.classList.add('visible');
+      }
+
+      const avatarImg = document.getElementById('avatar-img');
+      const avatarPlaceholder = document.getElementById('avatar-placeholder');
+      if (appData.avatarImg) {
+        avatarImg.src = appData.avatarImg;
+        avatarImg.style.display = 'block';
+        avatarPlaceholder.style.display = 'none';
+      } else {
+        avatarImg.style.display = 'none';
+        avatarPlaceholder.style.display = 'block';
+      }
+
+      document.getElementById('nickname-input').value = appData.nickname || '';
+      document.getElementById('bio-textarea').value = appData.bio || '';
+      document.getElementById('vertical-textarea').value = appData.verticalText || '';
+
+      document.getElementById('top-photo-img').src = appData.topPhoto.src;
+      document.getElementById('top-photo-caption').textContent = appData.topPhoto.caption;
+
+      renderGalleryGrid();
+    }
+
+    function renderGalleryGrid() {
+      const grid = document.getElementById('gallery-grid');
+      grid.innerHTML = '';
+
+      appData.galleryPhotos.forEach((item, index) => {
+        const slot = document.createElement('div');
+        slot.className = 'photo-slot';
+        slot.onclick = () => openPhotoModal(index);
+
+        const img = document.createElement('img');
+        img.src = item.src;
+        img.alt = item.caption || `사진 ${index + 1}`;
+
+        const overlay = document.createElement('div');
+        overlay.className = 'photo-overlay';
+
+        const captionSpan = document.createElement('span');
+        captionSpan.className = 'photo-overlay-text';
+        captionSpan.textContent = item.caption || '';
+
+        overlay.appendChild(captionSpan);
+        slot.appendChild(img);
+        slot.appendChild(overlay);
+        grid.appendChild(slot);
+      });
+
+      const removeBtn = document.getElementById('btn-remove-row');
+      removeBtn.style.display = appData.galleryPhotos.length > 3 ? 'block' : 'none';
+    }
+
+    function addGalleryRow() {
+      if (!isEditMode) return;
+      const placeholders = [
+        'https://images.unsplash.com/photo-1501785888041-af3ef285b470?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1469474968028-56623f02e42e?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1426604966848-d7adac402bff?auto=format&fit=crop&w=600&q=80'
+      ];
+      const baseCount = appData.galleryPhotos.length;
+      for (let i = 0; i < 3; i++) {
+        appData.galleryPhotos.push(createPhotoItem(placeholders[i % placeholders.length], `${baseCount + i + 1}번째 기록`));
+      }
+      saveAllData();
+      renderGalleryGrid();
+      showToast('사진 1줄(3칸)이 추가되었습니다.');
+    }
+
+    function removeLastGalleryRow() {
+      if (!isEditMode || appData.galleryPhotos.length <= 3) return;
+      appData.galleryPhotos.splice(-3, 3);
+      saveAllData();
+      renderGalleryGrid();
+      showToast('마지막 사진 줄이 삭제되었습니다.');
+    }
+
+    function toggleAdminMode() {
+      if (isEditMode) {
+        saveAllData();
+        setEditMode(false);
+        showToast('저장 및 잠금 완료');
+      } else {
+        document.getElementById('admin-pw-input').value = '';
+        document.getElementById('auth-error-msg').style.display = 'none';
+        document.getElementById('auth-modal').classList.add('active');
+        setTimeout(() => document.getElementById('admin-pw-input').focus(), 80);
+      }
+    }
+
+    function verifyPassword() {
+      const inputPw = document.getElementById('admin-pw-input').value;
+      const savedPw = localStorage.getItem(PW_STORAGE_KEY) || '1234';
+
+      if (inputPw === savedPw) {
+        closeModal('auth-modal');
+        setEditMode(true);
+        showToast('관리자 편집 모드 활성화');
+      } else {
+        document.getElementById('auth-error-msg').style.display = 'block';
+      }
+    }
+
+    function setEditMode(enabled) {
+      isEditMode = enabled;
+      document.body.classList.toggle('edit-mode', enabled);
+
+      ['nickname-input', 'bio-textarea', 'vertical-textarea'].forEach(id => {
+        document.getElementById(id).readOnly = !enabled;
+      });
+
+      const resetBgBtn = document.getElementById('btn-reset-bg');
+      resetBgBtn.style.display = (enabled && appData.bgImg) ? 'inline-flex' : 'none';
+
+      document.getElementById('admin-btn-text').textContent = enabled ? '편집 완료 (잠금)' : '관리자 편집';
+    }
+
+    function openPasswordChangeModal() {
+      if (!isEditMode) return;
+      document.getElementById('new-pw-input').value = '';
+      document.getElementById('pw-change-modal').classList.add('active');
+    }
+
+    function saveNewPassword() {
+      if (!isEditMode) return;
+      const newPw = document.getElementById('new-pw-input').value.trim();
+      if (!newPw) return showToast('새 비밀번호를 입력해 주세요.');
+      localStorage.setItem(PW_STORAGE_KEY, newPw);
+      closeModal('pw-change-modal');
+      showToast('비밀번호가 변경되었습니다.');
+    }
+
+    function handleHeaderClick() {
+      if (isEditMode) document.getElementById('header-file').click();
+    }
+
+    function handleAvatarClick() {
+      if (isEditMode) document.getElementById('avatar-file').click();
+    }
+
+    function updateCustomImage(event, type) {
+      if (!isEditMode) return;
+      const file = event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function (e) {
+        if (type === 'header') appData.headerImg = e.target.result;
+        else if (type === 'avatar') appData.avatarImg = e.target.result;
+        else if (type === 'bg') appData.bgImg = e.target.result;
+        saveAllData();
+        renderAll();
+        showToast('이미지가 적용되었습니다.');
+      };
+      reader.readAsDataURL(file);
+      event.target.value = '';
+    }
+
+    function resetBackgroundImage() {
+      if (!isEditMode) return;
+      appData.bgImg = '';
+      saveAllData();
+      renderAll();
+      showToast('배경이 초기화되었습니다.');
+    }
+
+    function openPhotoModal(target) {
+      currentEditingTarget = target;
+      const photoObj = target === 'top' ? appData.topPhoto : appData.galleryPhotos[target];
+
+      tempBannerDataUrl = photoObj.src;
+      tempSubPhotos = [...(photoObj.subPhotos || [])];
+
+      document.getElementById('photo-modal-title').textContent = isEditMode ? '상세 기록 편집 (관리자)' : '상세 기록';
+      document.getElementById('detail-banner-img').src = photoObj.src;
+      document.getElementById('detail-caption-input').value = photoObj.caption || '';
+      document.getElementById('detail-sub-title').value = photoObj.subTitle || '';
+      document.getElementById('detail-desc-area').value = photoObj.desc || '';
+
+      ['detail-caption-input', 'detail-sub-title', 'detail-desc-area'].forEach(id => {
+        document.getElementById(id).readOnly = !isEditMode;
+      });
+
+      renderDetailSubGrid();
+      document.getElementById('photo-modal').classList.add('active');
+    }
+
+    function triggerBannerFile() {
+      if (!isEditMode) return;
+      document.getElementById('modal-banner-file').click();
+    }
+
+    function renderDetailSubGrid() {
+      const grid = document.getElementById('detail-sub-grid');
+      grid.innerHTML = '';
+
+      tempSubPhotos.forEach((src, idx) => {
+        const box = document.createElement('div');
+        box.className = 'detail-sub-photo';
+
+        if (isEditMode) {
+          box.title = '클릭하여 사진 변경';
+          box.onclick = () => {
+            currentSubPhotoIndex = idx;
+            document.getElementById('detail-sub-file').click();
+          };
+        }
+
+        const img = document.createElement('img');
+        img.src = src;
+        box.appendChild(img);
+        grid.appendChild(box);
+      });
+
+      const removeSubBtn = document.getElementById('btn-remove-sub-row');
+      if (removeSubBtn) {
+        removeSubBtn.style.display = (isEditMode && tempSubPhotos.length > 3) ? 'block' : 'none';
+      }
+    }
+
+    function handleDetailBannerFile(event) {
+      if (!isEditMode) return;
+      const file = event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = e => {
+        tempBannerDataUrl = e.target.result;
+        document.getElementById('detail-banner-img').src = tempBannerDataUrl;
+      };
+      reader.readAsDataURL(file);
+      event.target.value = '';
+    }
+
+    function handleDetailSubFile(event) {
+      if (!isEditMode) return;
+      const file = event.target.files[0];
+      if (!file || currentSubPhotoIndex === null) return;
+      const reader = new FileReader();
+      reader.onload = e => {
+        tempSubPhotos[currentSubPhotoIndex] = e.target.result;
+        renderDetailSubGrid();
+      };
+      reader.readAsDataURL(file);
+      event.target.value = '';
+    }
+
+    function addDetailSubRow() {
+      if (!isEditMode) return;
+      tempSubPhotos.push(
+        'https://images.unsplash.com/photo-1501785888041-af3ef285b470?auto=format&fit=crop&w=400&q=80',
+        'https://images.unsplash.com/photo-1469474968028-56623f02e42e?auto=format&fit=crop&w=400&q=80',
+        'https://images.unsplash.com/photo-1426604966848-d7adac402bff?auto=format&fit=crop&w=400&q=80'
+      );
+      renderDetailSubGrid();
+    }
+
+    function removeDetailSubRow() {
+      if (!isEditMode || tempSubPhotos.length <= 3) return;
+      tempSubPhotos.splice(-3, 3);
+      renderDetailSubGrid();
+    }
+
+    function saveDetailChanges() {
+      if (!isEditMode || currentEditingTarget === null) return;
+      const photoObj = currentEditingTarget === 'top' ? appData.topPhoto : appData.galleryPhotos[currentEditingTarget];
+
+      photoObj.src = tempBannerDataUrl;
+      photoObj.caption = document.getElementById('detail-caption-input').value;
+      photoObj.subTitle = document.getElementById('detail-sub-title').value;
+      photoObj.desc = document.getElementById('detail-desc-area').value;
+      photoObj.subPhotos = [...tempSubPhotos];
+
+      saveAllData();
+      renderAll();
+      closeModal('photo-modal');
+      showToast('상세 기록이 저장되었습니다.');
+    }
+
+    function closeModal(modalId) {
+      document.getElementById(modalId).classList.remove('active');
+    }
+
+    function closeBackdrop(event, modalId) {
+      if (event.target.id === modalId) {
+        closeModal(modalId);
+      }
+    }
+
+    initTheme();
+    renderAll();
+    setEditMode(false);
+  
+    const firebaseConfig = {
+    apiKey: "AIzaSyDEgPeFrSc6-Dt05tYC4Tw2_4XMTN07Yw",
+     authDomain: "main-twt.firebaseapp.com",
+      projectId: "main-twt",
+     storageBucket: "main-twt.firebasestorage.app",
+      messagingSenderId: "820797663078",
+      appId: "1:820797663078:web:65ee272ef17be1f47caa7",
+     measurementId: "G-TNJST649J"
+  };
+  
+  </script>
+  
+</body>
+
+</html>
